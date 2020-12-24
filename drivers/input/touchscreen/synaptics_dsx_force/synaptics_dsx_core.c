@@ -5576,26 +5576,6 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	xiaomitouch_register_modedata(&xiaomi_touch_interfaces);
 #endif
 #endif
-#ifdef CONFIG_SYNA_TOUCH_COUNT_DUMP
-	if (rmi4_data->syna_tp_class == NULL)
-#ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE_SENSOR
-		rmi4_data->syna_tp_class = get_xiaomi_touch_class();
-#else
-		rmi4_data->syna_tp_class = class_create(THIS_MODULE, "touch");
-#endif
-	rmi4_data->syna_touch_dev = device_create(rmi4_data->syna_tp_class, NULL, 0x20, rmi4_data, "touch_suspend_notify");
-
-	if (IS_ERR(rmi4_data->syna_touch_dev)) {
-		goto err_clickdump;
-	}
-
-	dev_set_drvdata(rmi4_data->syna_touch_dev, rmi4_data);
-	retval = sysfs_create_file(&rmi4_data->syna_touch_dev->kobj, &dev_attr_touch_suspend_notify.attr);
-
-	if (retval) {
-		goto err_clickdump;
-	}
-#endif
 
 	return retval;
 
