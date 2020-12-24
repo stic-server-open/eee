@@ -353,8 +353,7 @@ uint8_t lim_check_rx_rsn_ie_match(tpAniSirGlobal mac_ctx,
 				  bool *pmf_connection)
 {
 	tDot11fIERSN *rsn_ie;
-	bool match = false;
-	uint8_t i, j, only_non_ht_cipher = 1;
+	uint8_t i, j, match, only_non_ht_cipher = 1;
 #ifdef WLAN_FEATURE_11W
 	bool we_are_pmf_capable;
 	bool we_require_pmf;
@@ -381,7 +380,7 @@ uint8_t lim_check_rx_rsn_ie_match(tpAniSirGlobal mac_ctx,
 		if (!qdf_mem_cmp(&rx_rsn_ie->akm_suite[0],
 				 &rsn_ie->akm_suite[i],
 				 sizeof(rsn_ie->akm_suite[i]))) {
-			match = true;
+			match = 1;
 			break;
 		}
 	if (!match) {
@@ -401,13 +400,13 @@ uint8_t lim_check_rx_rsn_ie_match(tpAniSirGlobal mac_ctx,
 	 * For each Pairwise cipher suite check whether we support
 	 * received pairwise
 	 */
-	match = false;
+	match = 0;
 	for (i = 0; i < rx_rsn_ie->pwise_cipher_suite_count; i++) {
 		for (j = 0; j < rsn_ie->pwise_cipher_suite_count; j++) {
 			if (!qdf_mem_cmp(&rx_rsn_ie->pwise_cipher_suites[i],
 			    &rsn_ie->pwise_cipher_suites[j],
 			    sizeof(rsn_ie->pwise_cipher_suites[j]))) {
-				match = true;
+				match = 1;
 				break;
 			}
 		}
@@ -489,8 +488,7 @@ lim_check_rx_wpa_ie_match(tpAniSirGlobal mac, tDot11fIEWPA rx_wpaie,
 			  tpPESession session_entry, uint8_t sta_is_ht)
 {
 	tDot11fIEWPA *wpa_ie;
-	bool match = false;
-	uint8_t i, j, only_non_ht_cipher = 1;
+	uint8_t i, j, match, only_non_ht_cipher = 1;
 
 	/* WPA IE should be received from PE */
 	wpa_ie = &session_entry->gStartBssWPAIe;
@@ -506,7 +504,7 @@ lim_check_rx_wpa_ie_match(tpAniSirGlobal mac, tDot11fIEWPA rx_wpaie,
 		if (!qdf_mem_cmp(&rx_wpaie.auth_suites[0],
 				 &wpa_ie->auth_suites[i],
 				 sizeof(wpa_ie->auth_suites[i]))) {
-			match = true;
+			match = 1;
 			break;
 		}
 	if (!match) {
@@ -526,12 +524,12 @@ lim_check_rx_wpa_ie_match(tpAniSirGlobal mac, tDot11fIEWPA rx_wpaie,
 	 * For each Pairwise cipher suite check whether we support
 	 * received pairwise
 	 */
-	match = false;
+	match = 0;
 	for (i = 0; i < rx_wpaie.unicast_cipher_count; i++) {
 		for (j = 0; j < wpa_ie->unicast_cipher_count; j++) {
 			if (!qdf_mem_cmp(rx_wpaie.unicast_ciphers[i],
 					    wpa_ie->unicast_ciphers[j], 4)) {
-				match = true;
+				match = 1;
 				break;
 			}
 		}

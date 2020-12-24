@@ -360,15 +360,15 @@ static const u32 hdd_sta_akm_suites[] = {
 	WLAN_AKM_SUITE_TDLS,
 	WLAN_AKM_SUITE_SAE,
 	WLAN_AKM_SUITE_FT_OVER_SAE,
-	WLAN_AKM_SUITE_EAP_SHA256,
-	WLAN_AKM_SUITE_EAP_SHA384,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0))
+	WLAN_AKM_SUITE_8021X_SUITE_B,
+	WLAN_AKM_SUITE_8021X_SUITE_B_192,
+#endif
 	WLAN_AKM_SUITE_FILS_SHA256,
 	WLAN_AKM_SUITE_FILS_SHA384,
 	WLAN_AKM_SUITE_FT_FILS_SHA256,
 	WLAN_AKM_SUITE_FT_FILS_SHA384,
 	WLAN_AKM_SUITE_OWE,
-	WLAN_AKM_SUITE_DPP_RSN,
-	WLAN_AKM_SUITE_FT_EAP_SHA_384,
 };
 
 /*akm suits supported by AP*/
@@ -2495,7 +2495,7 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 	struct hdd_context *hdd_ctx = wiphy_priv(wiphy);
 	tsap_config_t *sap_config;
 	struct sk_buff *temp_skbuff;
-	int ret, i;
+	int ret, i, ch_cnt = 0;
 	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_ACS_MAX + 1];
 	bool ht_enabled, ht40_enabled, vht_enabled;
 	uint8_t ch_width;
@@ -2503,6 +2503,7 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 	QDF_STATUS qdf_status;
 	uint8_t conc_channel;
 	mac_handle_t mac_handle;
+	bool skip_etsi13_srd_chan = false;
 
 	/* ***Note*** Donot set SME config related to ACS operation here because
 	 * ACS operation is not synchronouse and ACS for Second AP may come when
@@ -2685,6 +2686,23 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 		hdd_err("acs config chan count 0");
 		ret = -EINVAL;
 		goto out;
+	}
+
+	skip_etsi13_srd_chan =
+		!hdd_ctx->config->etsi13_srd_chan_in_master_mode &&
+		wlan_reg_is_etsi13_regdmn(hdd_ctx->pdev);
+
+	if (skip_etsi13_srd_chan) {
+		for (i = 0; i < sap_config->acs_cfg.ch_list_count; i++) {
+			if (wlan_reg_is_etsi13_srd_chan(hdd_ctx->pdev,
+							sap_config->acs_cfg.
+							ch_list[i]))
+				sap_config->acs_cfg.ch_list[i] = 0;
+			else
+				sap_config->acs_cfg.ch_list[ch_cnt++] =
+						sap_config->acs_cfg.ch_list[i];
+		}
+		sap_config->acs_cfg.ch_list_count = ch_cnt;
 	}
 
 	/* consult policy manager to get PCL */
@@ -5099,12 +5117,15 @@ static int __wlan_hdd_cfg80211_disable_dfs_chan_scan(struct wiphy *wiphy,
 #ifdef WLAN_DEBUG
 	struct net_device *dev = wdev->netdev;
 #endif
+
 	struct hdd_context *hdd_ctx  = wiphy_priv(wiphy);
 	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_SET_NO_DFS_FLAG_MAX + 1];
 	int ret_val;
 	uint32_t no_dfs_flag = 0;
 
+#ifdef WLAN_DEBUG
 	hdd_enter_dev(dev);
+#endif
 
 	ret_val = wlan_hdd_validate_context(hdd_ctx);
 	if (ret_val)
@@ -21642,6 +21663,7 @@ static int wlan_hdd_cfg80211_connect(struct wiphy *wiphy,
 	return ret;
 }
 
+#ifdef WLAN_DEBUG
 /**
  * hdd_ieee80211_reason_code_to_str() - return string conversion of reason code
  * @reason: ieee80211 reason code.
@@ -21651,7 +21673,7 @@ static int wlan_hdd_cfg80211_connect(struct wiphy *wiphy,
  * Return: string conversion of reason code, if match found;
  *         "Unknown" otherwise.
  */
-#ifdef WLAN_DEBUG
+
 static const char *hdd_ieee80211_reason_code_to_str(uint16_t reason)
 {
 	switch (reason) {
@@ -21874,12 +21896,14 @@ wlan_hdd_cfg80211_indicate_disconnect(struct hdd_adapter *adapter,
 
 	ieee80211_reason = wlan_hdd_get_cfg80211_disconnect_reason(adapter,
 								   reason);
+#ifdef WLAN_DEBUG
 	hdd_nofl_info("Disconnect reason: %u %s vendor: %u %s LG: %u",
 		      ieee80211_reason,
 		      hdd_ieee80211_reason_code_to_str(ieee80211_reason),
 		      adapter->last_disconnect_reason,
 		      hdd_qca_reason_to_str(adapter->last_disconnect_reason),
 		      locally_generated);
+#endif
 	cfg80211_disconnected(adapter->dev, ieee80211_reason, disconnect_ies,
 			      disconnect_ies_len, locally_generated,
 			      GFP_KERNEL);
@@ -21896,12 +21920,14 @@ wlan_hdd_cfg80211_indicate_disconnect(struct hdd_adapter *adapter,
 
 	ieee80211_reason = wlan_hdd_get_cfg80211_disconnect_reason(adapter,
 								   reason);
+#ifdef WLAN_DEBUG
 	hdd_nofl_info("Disconnect reason: %u %s vendor: %u %s LG: %u",
 		      ieee80211_reason,
 		      hdd_ieee80211_reason_code_to_str(ieee80211_reason),
 		      adapter->last_disconnect_reason,
 		      hdd_qca_reason_to_str(adapter->last_disconnect_reason),
 		      locally_generated);
+#endif
 	cfg80211_disconnected(adapter->dev, ieee80211_reason, disconnect_ies,
 			      disconnect_ies_len, GFP_KERNEL);
 }
@@ -21945,18 +21971,17 @@ int wlan_hdd_disconnect(struct hdd_adapter *adapter, u16 reason,
  */
 static void hdd_print_netdev_txq_status(struct net_device *dev)
 {
+#ifdef WLAN_DEBUG
 	unsigned int i;
 
 	if (!dev)
 		return;
 
 	for (i = 0; i < dev->num_tx_queues; i++) {
-#ifdef WLAN_DEBUG
 		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
-#endif
-
 		hdd_debug("netdev tx queue[%u] state: 0x%lx", i, txq->state);
 	}
+#endif
 }
 
 /**
@@ -22060,9 +22085,11 @@ static int __wlan_hdd_cfg80211_disconnect(struct wiphy *wiphy,
 		if (vdev)
 			hdd_objmgr_put_vdev(vdev);
 
+#ifdef WLAN_DEBUG
 		hdd_nofl_info("%s(vdevid-%d): Received Disconnect reason:%d %s",
 			      dev->name, adapter->session_id, reason,
 			      hdd_ieee80211_reason_code_to_str(reason));
+#endif
 		status = wlan_hdd_disconnect(adapter, reasonCode, reason);
 		if (0 != status) {
 			hdd_err("wlan_hdd_disconnect failed, status: %d", status);

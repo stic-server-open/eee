@@ -19,6 +19,9 @@ WLAN_COMMON_ROOT ?= ../qca-wifi-host-cmn
 WLAN_COMMON_INC ?= $(WLAN_ROOT)/$(WLAN_COMMON_ROOT)
 
 CONFIG_QCA_CLD_WLAN_PROFILE ?= default
+
+TARGET_BUILD_VARIANT := user
+
 ifeq ($(KERNEL_BUILD), n)
 ifneq ($(ANDROID_BUILD_TOP),)
       override WLAN_ROOT := $(ANDROID_BUILD_TOP)/$(WLAN_ROOT)
@@ -487,7 +490,6 @@ QDF_INC :=	-I$(WLAN_COMMON_INC)/$(QDF_OS_INC_DIR) \
 QDF_OBJS := 	$(QDF_LINUX_OBJ_DIR)/qdf_defer.o \
 		$(QDF_LINUX_OBJ_DIR)/qdf_event.o \
 		$(QDF_LINUX_OBJ_DIR)/qdf_file.o \
-		$(QDF_LINUX_OBJ_DIR)/qdf_func_tracker.o \
 		$(QDF_LINUX_OBJ_DIR)/qdf_list.o \
 		$(QDF_LINUX_OBJ_DIR)/qdf_lock.o \
 		$(QDF_LINUX_OBJ_DIR)/qdf_mc_timer.o \
@@ -1531,9 +1533,7 @@ ifeq ($(CONFIG_REMOVE_PKT_LOG), n)
 INCS +=		$(PKTLOG_INC)
 endif
 
-ifeq ($(BUILD_DIAG_VERSION), y)
 INCS +=		$(HOST_DIAG_LOG_INC)
-endif
 
 INCS +=		$(DISA_INC)
 INCS +=		$(ACTION_OUI_INC)
@@ -1600,7 +1600,9 @@ OBJS +=		$(UMAC_TDLS_OBJS)
 OBJS +=		$(PMO_OBJS)
 OBJS +=		$(UMAC_P2P_OBJS)
 OBJS +=		$(UMAC_POLICY_MGR_OBJS)
-OBJS +=		$(WLAN_LOGGING_OBJS)
+ifeq ($(BUILD_DEBUG_VERSION), 1)
+OBJS +=		$(WLAN_LOGGING_OBJS) $(FWLOG_OBJS)
+endif
 OBJS +=		$(NLINK_OBJS)
 OBJS +=		$(PTT_OBJS)
 OBJS +=		$(UMAC_SER_OBJS)
@@ -1658,7 +1660,6 @@ ccflags-y += $(INCS)
 
 cppflags-y +=	-DANI_OS_TYPE_ANDROID=6 \
 		-Wall\
-		-Werror\
 		-D__linux__
 
 cppflags-$(CONFIG_PTT_SOCK_SVC_ENABLE) += -DPTT_SOCK_SVC_ENABLE
@@ -1705,8 +1706,6 @@ cppflags-$(CONFIG_FEATURE_OEM_DATA) += -DFEATURE_OEM_DATA
 cppflags-$(CONFIG_WLAN_HANG_EVENT) += -DWLAN_HANG_EVENT
 
 cppflags-$(CONFIG_WLAN_FEATURE_PERIODIC_STA_STATS) += -DWLAN_FEATURE_PERIODIC_STA_STATS
-
-cppflags-$(CONFIG_RX_HASH_DEBUG) += -DRX_HASH_DEBUG
 
 ifeq ($(CONFIG_CNSS), y)
 ifeq ($(CONFIG_CNSS_SDIO), y)
@@ -2186,8 +2185,6 @@ cppflags-$(CONFIG_ENABLE_SMMU_S1_TRANSLATION) += -DENABLE_SMMU_S1_TRANSLATION
 #Flag to enable/disable MTRACE feature
 cppflags-$(CONFIG_ENABLE_MTRACE_LOG) += -DENABLE_MTRACE_LOG
 
-cppflags-$(CONFIG_FUNC_CALL_MAP) += -DFUNC_CALL_MAP
-
 #Flag to enable/disable Adaptive 11r feature
 cppflags-$(CONFIG_ADAPTIVE_11R) += -DWLAN_ADAPTIVE_11R
 
@@ -2295,6 +2292,9 @@ ifeq ($(findstring arm, $(ARCH)),)
 else
 	ccflags-y += -DWLAN_HOST_ARCH_ARM=1
 endif
+
+ccflags-y += $(call cc-option, -g0)
+ccflags-y += $(call cc-option, -Os)
 
 # inject some build related information
 ifeq ($(CONFIG_BUILD_TAG), y)

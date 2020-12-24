@@ -35,8 +35,7 @@
 #include "mac_trace.h"
 #include "wlan_policy_mgr_api.h"
 
-#ifdef WLAN_DEBUG
-static const char *lfr_get_config_item_string(uint8_t reason)
+static __maybe_unused const char *lfr_get_config_item_string(uint8_t reason)
 {
 	switch (reason) {
 	CASE_RETURN_STRING(REASON_LOOKUP_THRESH_CHANGED);
@@ -49,7 +48,6 @@ static const char *lfr_get_config_item_string(uint8_t reason)
 		return "unknown";
 	}
 }
-#endif
 
 static void csr_neighbor_roam_reset_channel_info(tpCsrNeighborRoamChannelInfo
 						 rChInfo);

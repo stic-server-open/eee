@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2014-2018, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2014-2018 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -114,32 +114,27 @@ void htt_htc_pkt_pool_free(struct htt_pdev_t *pdev)
 
 #ifdef ATH_11AC_TXCOMPACT
 
-void
-htt_htc_misc_pkt_list_trim(struct htt_pdev_t *pdev, int level)
+void htt_htc_misc_pkt_list_trim(struct htt_pdev_t *pdev)
 {
-	struct htt_htc_pkt_union *pkt, *next, *prev = NULL;
-	int i = 0;
+	struct htt_htc_pkt_union *pkt, *next;
 	qdf_nbuf_t netbuf;
 
-	HTT_TX_MUTEX_ACQUIRE(&pdev->htt_tx_mutex);
-	pkt = pdev->htt_htc_pkt_misclist;
+	if(!pdev->last_misc_pkt->u.next)
+		goto out;
+
+	pkt = pdev->last_misc_pkt->u.next;
+	pdev->last_misc_pkt->u.next = NULL;
 	while (pkt) {
 		next = pkt->u.next;
-		/* trim the out grown list*/
-		if (++i > level) {
-			netbuf =
-				(qdf_nbuf_t)(pkt->u.pkt.htc_pkt.pNetBufContext);
-			qdf_nbuf_unmap(pdev->osdev, netbuf, QDF_DMA_TO_DEVICE);
-			qdf_nbuf_free(netbuf);
-			qdf_mem_free(pkt);
-			pkt = NULL;
-			if (prev)
-				prev->u.next = NULL;
-		}
-		prev = pkt;
+		netbuf = (qdf_nbuf_t) (pkt->u.pkt.htc_pkt.pNetBufContext);
+		qdf_nbuf_unmap(pdev->osdev, netbuf, QDF_DMA_TO_DEVICE);
+		qdf_nbuf_free(netbuf);
+		qdf_mem_free(pkt);
 		pkt = next;
 	}
-	HTT_TX_MUTEX_RELEASE(&pdev->htt_tx_mutex);
+out:
+	pdev->last_misc_pkt = pdev->htt_htc_pkt_misclist;
+	pdev->last_misc_num = 1;
 }
 
 void htt_htc_misc_pkt_list_add(struct htt_pdev_t *pdev, struct htt_htc_pkt *pkt)
@@ -153,15 +148,19 @@ void htt_htc_misc_pkt_list_add(struct htt_pdev_t *pdev, struct htt_htc_pkt *pkt)
 	if (pdev->htt_htc_pkt_misclist) {
 		u_pkt->u.next = pdev->htt_htc_pkt_misclist;
 		pdev->htt_htc_pkt_misclist = u_pkt;
+		pdev->last_misc_num++;
 	} else {
 		pdev->htt_htc_pkt_misclist = u_pkt;
+		pdev->last_misc_pkt = u_pkt;
+		pdev->last_misc_num = 1;
 	}
-	HTT_TX_MUTEX_RELEASE(&pdev->htt_tx_mutex);
 
 	/* only ce pipe size + tx_queue_depth could possibly be in use
 	 * free older packets in the msiclist
 	 */
-	htt_htc_misc_pkt_list_trim(pdev, misclist_trim_level);
+	if (pdev->last_misc_num > misclist_trim_level)
+		htt_htc_misc_pkt_list_trim(pdev);
+	HTT_TX_MUTEX_RELEASE(&pdev->htt_tx_mutex);
 }
 
 void htt_htc_misc_pkt_pool_free(struct htt_pdev_t *pdev)
@@ -807,13 +806,8 @@ void htt_log_rx_ring_info(htt_pdev_handle pdev)
 		  "%s: Data Stall Detected with reason 4 (=FW_RX_REFILL_FAILED)."
 		  "src htt rx ring:  space for %d elements, filled with %d buffers, buffers in the ring %d, refill debt %d",
 		  __func__, pdev->rx_ring.size, pdev->rx_ring.fill_level,
-		  qdf_atomic_read(&pdev->rx_ring.fill_cnt),
+		  pdev->rx_ring.fill_cnt,
 		  qdf_atomic_read(&pdev->rx_ring.refill_debt));
-}
-
-void htt_rx_refill_failure(htt_pdev_handle pdev)
-{
-	QDF_BUG(qdf_atomic_read(&pdev->rx_ring.refill_debt));
 }
 
 #if HTT_DEBUG_LEVEL > 5

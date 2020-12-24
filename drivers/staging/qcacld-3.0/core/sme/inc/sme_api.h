@@ -54,6 +54,7 @@
 #define SME_GLOBAL_CLASSD_STATS   (1 << eCsrGlobalClassDStats)
 #define SME_PER_CHAIN_RSSI_STATS  (1 << csr_per_chain_rssi_stats)
 
+#ifdef WLAN_DEBUG
 #define sme_alert(params...) QDF_TRACE_FATAL(QDF_MODULE_ID_SME, params)
 #define sme_err(params...) QDF_TRACE_ERROR(QDF_MODULE_ID_SME, params)
 #define sme_warn(params...) QDF_TRACE_WARN(QDF_MODULE_ID_SME, params)
@@ -79,6 +80,32 @@
 
 #define SME_ENTER() sme_debug("enter")
 #define SME_EXIT() sme_debug("exit")
+#else /* WLAN_DEBUG */
+/* Needed to avoid problems caused by disabling debug
+ * but different stuff still being passed to these loggers */
+#define noop ({ do { } while (0); })
+
+#define sme_alert(params...) noop
+#define sme_err(params...) noop
+#define sme_warn(params...) noop
+#define sme_info(params...) noop
+#define sme_debug(params...) noop
+
+#define sme_nofl_alert(params...) noop
+#define sme_nofl_err(params...) noop
+#define sme_nofl_warn(params...) noop
+#define sme_nofl_info(params...) noop
+#define sme_nofl_debug(params...) noop
+
+#define sme_alert_rl(params...) noop
+#define sme_err_rl(params...) noop
+#define sme_warn_rl(params...) noop
+#define sme_info_rl(params...) noop
+#define sme_debug_rl(params...) noop
+
+#define SME_ENTER() noop
+#define SME_EXIT() noop
+#endif /* WLAN_DEBUG */
 
 #define SME_SESSION_ID_ANY        50
 #define SME_SESSION_ID_BROADCAST  0xFF
@@ -741,18 +768,12 @@ QDF_STATUS sme_get_wcnss_hardware_version(tHalHandle hHal,
 /**
  * sme_oem_data_cmd() - the wrapper to send oem data cmd to wma
  * @mac_handle: Opaque handle to the global MAC context.
- * @@oem_data_event_handler_cb: callback to be registered
  * @oem_data: the pointer of oem data
- * @vdev id: vdev id to fetch adapter
  *
  * Return: QDF_STATUS
  */
 QDF_STATUS sme_oem_data_cmd(mac_handle_t mac_handle,
-			    void (*oem_data_event_handler_cb)
-			    (const struct oem_data *oem_event_data,
-			     uint8_t vdev_id),
-			     struct oem_data *oem_data,
-			     uint8_t vdev_id);
+			    struct oem_data *oem_data);
 #endif
 
 #ifdef FEATURE_OEM_DATA_SUPPORT
@@ -3189,6 +3210,44 @@ QDF_STATUS sme_get_ani_level(mac_handle_t mac_handle, uint32_t *freqs,
 			     struct wmi_host_ani_level_event *ani, uint8_t num,
 			     void *context), void *context);
 #endif /* FEATURE_ANI_LEVEL_REQUEST */
+
+#ifdef FEATURE_OEM_DATA
+/**
+ * sme_set_oem_data_event_handler_cb() - Register oem data event handler
+ * callback
+ * @mac_handle: Opaque handle to the MAC context
+ * @oem_data_event_handler_cb: callback to be registered
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS sme_set_oem_data_event_handler_cb(
+			mac_handle_t mac_handle,
+			void (*oem_data_event_handler_cb)
+				(const struct oem_data *oem_event_data));
+
+/**
+ * sme_reset_oem_data_event_handler_cb() - De-register oem data event handler
+ * @mac_handle: Handler return by mac_open
+ *
+ * This function De-registers the OEM data event handler callback to SME
+ *
+ * Return: None
+ */
+void sme_reset_oem_data_event_handler_cb(mac_handle_t  mac_handle);
+#else
+static inline QDF_STATUS sme_set_oem_data_event_handler_cb(
+			mac_handle_t mac_handle,
+			void (*oem_data_event_handler_cb)
+				(void *oem_event_data))
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline void sme_reset_oem_data_event_handler_cb(mac_handle_t  mac_handle)
+{
+}
+
+#endif
 
 /**
  * sme_get_prev_connected_bss_ies() - Get the previous connected AP IEs

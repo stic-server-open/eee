@@ -702,11 +702,15 @@ QDF_STATUS wlansap_start_bss(struct sap_context *sap_ctx,
 	tHalHandle hHal;
 	tpAniSirGlobal pmac = NULL;
 
-	if (!sap_ctx) {
-		sap_info("Invalid SAP context");
+	QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+		  "wlansap_start_bss: sapContext=%pK", sap_ctx);
+
+	if (NULL == sap_ctx) {
+		QDF_TRACE(QDF_MODULE_ID_SAP, QDF_TRACE_LEVEL_INFO_HIGH,
+			  "%s: Invalid SAP pointer",
+			  __func__);
 		return QDF_STATUS_E_FAULT;
 	}
-
 	sap_ctx->fsm_state = SAP_INIT;
 
 	/* Channel selection is auto or configured */
@@ -785,11 +789,6 @@ QDF_STATUS wlansap_start_bss(struct sap_context *sap_ctx,
 		pConfig->dfs_beacon_tx_enhanced;
 	pmac->sap.SapDfsInfo.reduced_beacon_interval =
 				pConfig->reduced_beacon_interval;
-	sap_debug("SAP: auth ch select weight:%d chswitch bcn cnt:%d chswitch mode:%d reduced bcn intv:%d",
-		  sap_ctx->auto_channel_select_weight,
-		  pConfig->sap_chanswitch_beacon_cnt,
-		  pmac->sap.SapDfsInfo.sap_ch_switch_mode,
-		  pmac->sap.SapDfsInfo.reduced_beacon_interval);
 
 	/* Copy MAC filtering settings to sap context */
 	sap_ctx->eSapMacAddrAclMode = pConfig->SapMacaddr_acl;
@@ -1394,12 +1393,14 @@ QDF_STATUS wlansap_set_channel_change_with_csa(struct sap_context *sapContext,
 		sap_err("%u is unsafe channel", targetChannel);
 		return QDF_STATUS_E_FAULT;
 	}
+#ifdef WLAN_DEBUG
 	sap_nofl_debug("SAP CSA: %d ---> %d conn on 5GHz:%d, csa_reason:%s(%d) strict %d vdev %d",
 		       sapContext->channel, targetChannel,
 		       policy_mgr_is_any_mode_active_on_band_along_with_session(
 		       pMac->psoc, sapContext->sessionId, POLICY_MGR_BAND_5),
 		       sap_get_csa_reason_str(sapContext->csa_reason),
 		       sapContext->csa_reason, strict, sapContext->sessionId);
+#endif
 
 	sta_sap_scc_on_dfs_chan =
 		policy_mgr_is_sta_sap_scc_allowed_on_dfs_chan(pMac->psoc);
@@ -3121,7 +3122,7 @@ QDF_STATUS wlansap_update_owe_info(struct sap_context *sap_ctx,
 	struct owe_assoc_ind *owe_assoc_ind;
 	tSirSmeAssocInd *assoc_ind = NULL;
 	qdf_list_node_t *node = NULL, *next_node = NULL;
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	QDF_STATUS status;
 
 	if (!wlansap_validate_owe_ies(ie, ie_len)) {
 		QDF_TRACE_ERROR(QDF_MODULE_ID_SAP, "Invalid OWE IE");
