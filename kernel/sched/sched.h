@@ -471,8 +471,7 @@ struct cfs_rq {
 	u64 min_vruntime_copy;
 #endif
 
-	struct rb_root tasks_timeline;
-	struct rb_node *rb_leftmost;
+	struct rb_root_cached tasks_timeline;
 
 	/*
 	 * 'curr' points to currently running entity on this cfs_rq.
@@ -726,6 +725,7 @@ struct rq {
 #ifdef CONFIG_NO_HZ_COMMON
 #ifdef CONFIG_SMP
 	unsigned long last_load_update_tick;
+	unsigned long last_blocked_load_update_tick;
 #endif /* CONFIG_SMP */
 	unsigned long nohz_flags;
 #endif /* CONFIG_NO_HZ_COMMON */
@@ -1491,6 +1491,7 @@ extern const u32 sched_prio_to_wmult[40];
 #define DEQUEUE_SLEEP		0x01
 #define DEQUEUE_SAVE		0x02 /* matches ENQUEUE_RESTORE */
 #define DEQUEUE_MOVE		0x04 /* matches ENQUEUE_MOVE */
+#define DEQUEUE_IDLE		0x80 /* The last dequeue before IDLE */
 
 #define ENQUEUE_WAKEUP		0x01
 #define ENQUEUE_RESTORE		0x02
@@ -1883,7 +1884,7 @@ static inline unsigned long capacity_orig_of(int cpu)
 	return cpu_rq(cpu)->cpu_capacity_orig;
 }
 
-extern unsigned int walt_disabled;
+extern bool walt_disabled;
 
 static inline unsigned long task_util(struct task_struct *p)
 {
@@ -2296,6 +2297,7 @@ extern void cfs_bandwidth_usage_dec(void);
 enum rq_nohz_flag_bits {
 	NOHZ_TICK_STOPPED,
 	NOHZ_BALANCE_KICK,
+	NOHZ_STATS_KICK
 };
 
 #define NOHZ_KICK_ANY 0
@@ -2380,8 +2382,6 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	u64 clock;
 
 #ifdef CONFIG_SCHED_WALT
-	if (!(flags & SCHED_CPUFREQ_WALT))
-		return;
 	clock = sched_ktime_clock();
 #else
 	clock = rq_clock(rq);

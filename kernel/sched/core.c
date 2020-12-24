@@ -138,7 +138,7 @@ const_debug unsigned int sysctl_sched_features =
  * Number of tasks to iterate in a single balance run.
  * Limited because this is done with IRQs disabled.
  */
-const_debug unsigned int sysctl_sched_nr_migrate = 32;
+const_debug unsigned int sysctl_sched_nr_migrate = NR_CPUS;
 
 /*
  * period over which we average the RT time consumption, measured
@@ -2199,9 +2199,7 @@ out:
 	if (success && sched_predl) {
 		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 		if (do_pl_notif(cpu_rq(cpu)))
-			cpufreq_update_util(cpu_rq(cpu),
-					    SCHED_CPUFREQ_WALT |
-					    SCHED_CPUFREQ_PL);
+			cpufreq_update_util(cpu_rq(cpu), SCHED_CPUFREQ_PL);
 		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 	}
 
@@ -2323,7 +2321,7 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	p->last_sleep_ts		= 0;
-	p->last_cpu_selected_ts		= 0;
+	p->last_cpu_deselected_ts	= 0;
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -3240,7 +3238,6 @@ void scheduler_tick(void)
 	bool early_notif;
 	u32 old_load;
 	struct related_thread_group *grp;
-	unsigned int flag = 0;
 
 	sched_clock_tick();
 
@@ -3259,9 +3256,7 @@ void scheduler_tick(void)
 
 	early_notif = early_detection_notify(rq, wallclock);
 	if (early_notif)
-		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
-
-	cpufreq_update_util(rq, flag);
+		cpufreq_update_util(rq, SCHED_CPUFREQ_EARLY_DET);
 
 	psi_task_tick(rq);
 
@@ -3626,6 +3621,7 @@ static void __sched notrace __schedule(bool preempt)
 	rq->clock_skip_update = 0;
 
 	if (likely(prev != next)) {
+		prev->last_cpu_deselected_ts = wallclock;
 		if (!prev->on_rq)
 			prev->last_sleep_ts = wallclock;
 
@@ -3933,8 +3929,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	if (dl_prio(prio)) {
 		struct task_struct *pi_task = rt_mutex_get_top_task(p);
 		if (!dl_prio(p->normal_prio) ||
-		    (pi_task && dl_prio(pi_task->prio) &&
-		     dl_entity_preempt(&pi_task->dl, &p->dl))) {
+		    (pi_task && dl_entity_preempt(&pi_task->dl, &p->dl))) {
 			p->dl.dl_boosted = 1;
 			queue_flag |= ENQUEUE_REPLENISH;
 		} else
@@ -8350,13 +8345,14 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-		walt_sched_init(rq);
+		walt_sched_init_rq(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
 		rq_attach_root(rq, &def_root_domain);
 #ifdef CONFIG_NO_HZ_COMMON
 		rq->last_load_update_tick = jiffies;
+		rq->last_blocked_load_update_tick = jiffies;
 		rq->nohz_flags = 0;
 #endif
 #ifdef CONFIG_NO_HZ_FULL
