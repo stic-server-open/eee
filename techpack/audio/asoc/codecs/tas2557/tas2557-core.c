@@ -19,7 +19,6 @@
 ** =============================================================================
 */
 
-#define DEBUG
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
@@ -48,7 +47,6 @@
 
 #define TAS2557_CAL_NAME    "/mnt/vendor/persist/audio/tas2557_cal.bin"
 #define RESTART_MAX 3
-
 
 static int tas2557_load_calibration(struct tas2557_priv *pTAS2557,
 	char *pFileName);

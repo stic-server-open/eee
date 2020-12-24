@@ -30,7 +30,6 @@
 /* QSEE_LOG_BUF_SIZE = 32K */
 #define QSEE_LOG_BUF_SIZE 0x8000
 
-
 /* TZ Diagnostic Area legacy version number */
 #define TZBSP_DIAG_MAJOR_VERSION_LEGACY	2
 /*
@@ -1148,19 +1147,17 @@ static int tz_log_probe(struct platform_device *pdev)
 
 	tzdbg.diag_buf = (struct tzdbg_t *)ptr;
 
-	if (tzdbgfs_init(pdev))
-		goto err;
+	if (tzdbgfs_init(pdev)) {
+		kfree(tzdbg.diag_buf);
+		tzdbg.diag_buf = NULL;
+	}
 
 	tzdbg_register_qsee_log_buf();
 
 	tzdbg_get_tz_version();
 
 	return 0;
-err:
-	kfree(tzdbg.diag_buf);
-	return -ENXIO;
 }
-
 
 static int tz_log_remove(struct platform_device *pdev)
 {

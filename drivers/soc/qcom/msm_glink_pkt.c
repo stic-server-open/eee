@@ -200,7 +200,7 @@ enum {
 
 static int msm_glink_pkt_debug_mask;
 module_param_named(debug_mask, msm_glink_pkt_debug_mask,
-		int, 0664);
+		int, 0);
 
 static void glink_pkt_queue_rx_intent_worker(struct work_struct *work);
 static void glink_pkt_notify_state_worker(struct work_struct *work);

@@ -1292,7 +1292,7 @@ static ssize_t debugfs_misr_setup(struct file *file,
 		return -ENODEV;
 
 	if (*ppos)
-		return 0;
+		return -EINVAL;
 
 	buf = kzalloc(MISR_BUFF_SIZE, GFP_KERNEL);
 	if (!buf)
@@ -1421,7 +1421,7 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		return -ENODEV;
 
 	if (*ppos)
-		return 0;
+		return -EINVAL;
 
 	if (user_len > sizeof(u32))
 		return -EINVAL;
@@ -1481,7 +1481,7 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		return -ENODEV;
 
 	if (*ppos)
-		return 0;
+		return -EINVAL;
 
 	buf = kzalloc(len, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf))
@@ -1505,8 +1505,11 @@ static ssize_t debugfs_alter_esd_check_mode(struct file *file,
 		goto error;
 	}
 
-	if (!esd_config->esd_enabled)
+	if (!esd_config->esd_enabled) {
+		pr_warn("esd check didn't enable\n");
+		rc = -EINVAL;
 		goto error;
+	}
 
 	if (!strcmp(buf, "te_signal_check\n")) {
 		esd_config->status_mode = ESD_MODE_PANEL_TE;
@@ -1627,8 +1630,6 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	dir = debugfs_create_dir(display->name, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
 		rc = PTR_ERR(dir);
-		pr_err("[%s] debugfs create dir failed, rc = %d\n",
-		       display->name, rc);
 		goto error;
 	}
 
@@ -4882,8 +4883,6 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 		return count;
 	}
 
-	pr_info("%s: bitrate param value: '%d'\n", __func__, clk_rate);
-
 	mutex_lock(&display->display_lock);
 
 	mutex_lock(&dsi_display_clk_mutex);
@@ -4992,11 +4991,7 @@ static int dsi_display_bind(struct device *dev,
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_display_debugfs_init(display);
-	if (rc) {
-		pr_err("[%s] debugfs init failed, rc=%d\n", display->name, rc);
-		goto error;
-	}
+	dsi_display_debugfs_init(display);
 
 	atomic_set(&display->clkrate_change_pending, 0);
 	display->cached_clk_rate = 0;

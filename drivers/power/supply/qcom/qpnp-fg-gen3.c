@@ -415,12 +415,12 @@ static struct fg_alg_flag pmi8998_v2_alg_flags[] = {
 
 static int fg_gen3_debug_mask;
 module_param_named(
-	debug_mask, fg_gen3_debug_mask, int, 0600
+	debug_mask, fg_gen3_debug_mask, int, 0
 );
 
 static bool fg_profile_dump;
 module_param_named(
-	profile_dump, fg_profile_dump, bool, 0600
+	profile_dump, fg_profile_dump, bool, 0
 );
 
 static int fg_sram_dump_period_ms = 20000;
@@ -1279,11 +1279,10 @@ static int fg_awake_cb(struct votable *votable, void *data, int awake,
 	struct fg_chip *chip = data;
 
 	if (awake)
-		pm_stay_awake(chip->dev);
+		pm_wakeup_event(chip->dev, 500);
 	else
 		pm_relax(chip->dev);
 
-	pr_debug("client: %s awake: %d\n", client, awake);
 	return 0;
 }
 
@@ -4210,9 +4209,6 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
 		rc = fg_get_time_to_full(chip, &pval->intval);
 		break;
-	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
-		rc = fg_get_time_to_full(chip, &pval->intval);
-		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = fg_get_time_to_empty(chip, &pval->intval);
 		break;
@@ -4296,14 +4292,6 @@ static int fg_psy_set_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		if (chip->cl.active) {
-			pr_warn("Capacity learning active!\n");
-			return 0;
-		}
-		if (pval->intval <= 0 || pval->intval > chip->cl.nom_cap_uah) {
-			pr_err("charge_full is out of bounds\n");
-			return -EINVAL;
-		}
 		chip->cl.learned_cc_uah = pval->intval;
 		rc = fg_save_learned_cap_to_sram(chip);
 		if (rc < 0)
@@ -4446,7 +4434,6 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_SHADOW,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
-	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
@@ -5959,8 +5946,6 @@ static int calculate_average_current(struct fg_chip *chip)
 	}
 
 unchanged:
-	pr_info("current_now_ma=%d averaged_iavg_ma=%d\n",
-				chip->param.batt_ma, chip->param.batt_ma_avg);
 	return chip->param.batt_ma_avg;
 }
 
@@ -6035,10 +6020,6 @@ static void fg_battery_soc_smooth_tracking(struct fg_chip *chip)
 		chip->param.last_soc_change_time = last_change_time;
 		power_supply_changed(chip->batt_psy);
 	}
-
-	pr_info("soc:%d, last_soc:%d, raw_soc:%d, soc_changed:%d.\n",
-				chip->param.batt_soc, last_batt_soc,
-				chip->param.batt_raw_soc, soc_changed);
 }
 
 #define MONITOR_SOC_WAIT_MS					1000
@@ -6064,9 +6045,6 @@ static void soc_monitor_work(struct work_struct *work)
 
 	fg_battery_soc_smooth_tracking(chip);
 
-	pr_info("soc:%d, raw_soc:%d, c:%d, s:%d\n",
-				chip->param.batt_soc, chip->param.batt_raw_soc,
-				chip->param.batt_ma, chip->charge_status);
 	schedule_delayed_work(&chip->soc_monitor_work,
 				msecs_to_jiffies(MONITOR_SOC_WAIT_PER_MS));
 }
@@ -6321,12 +6299,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	/* Keep BATT_MISSING_IRQ disabled until we require it */
 	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
-	rc = fg_debugfs_create(chip);
-	if (rc < 0) {
-		dev_err(chip->dev, "Error in creating debugfs entries, rc:%d\n",
-			rc);
-		goto exit;
-	}
+	fg_debugfs_create(chip);
 
 	rc = fg_get_battery_voltage(chip, &volt_uv);
 	if (!rc)

@@ -4746,7 +4746,6 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
-		icnss_pr_err("Unable to create debugfs %d\n", ret);
 		goto out;
 	}
 
@@ -4775,7 +4774,6 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
-		icnss_pr_err("Unable to create debugfs %d\n", ret);
 		return ret;
 	}
 
@@ -4995,6 +4993,8 @@ static int icnss_probe(struct platform_device *pdev)
 			goto out;
 		}
 	}
+
+	device_enable_async_suspend(dev);
 
 	spin_lock_init(&priv->event_lock);
 	spin_lock_init(&priv->on_off_lock);
