@@ -119,6 +119,15 @@ all.config
 # fetched Android config fragments
 kernel/configs/android-*.cfg
 
+# build kernel
+out
+build_kernel.sh
+phone_build.sh
+server_build.sh
+demo_build.sh
+debug_build.sh
+trace_kernel/tools
+
 #
 #Ignoring Android.bp link file
 #
