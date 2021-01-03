@@ -657,13 +657,14 @@ static ssize_t hispeed_load_show(struct gov_attr_set *attr_set, char *buf)
 static ssize_t hispeed_load_store(struct gov_attr_set *attr_set,
 				  const char *buf, size_t count)
 {
+#if 0
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
 
 	if (kstrtouint(buf, 10, &tunables->hispeed_load))
 		return -EINVAL;
 
 	tunables->hispeed_load = min(100U, tunables->hispeed_load);
-
+#endif
 	return count;
 }
 
@@ -677,6 +678,7 @@ static ssize_t hispeed_freq_show(struct gov_attr_set *attr_set, char *buf)
 static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 					const char *buf, size_t count)
 {
+#if 0
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
 	unsigned int val;
 	struct sugov_policy *sg_policy;
@@ -695,7 +697,7 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 		sg_policy->hispeed_util = hs_util;
 		raw_spin_unlock_irqrestore(&sg_policy->update_lock, flags);
 	}
-
+#endif
 	return count;
 }
 
@@ -709,10 +711,12 @@ static ssize_t pl_show(struct gov_attr_set *attr_set, char *buf)
 static ssize_t pl_store(struct gov_attr_set *attr_set, const char *buf,
 				   size_t count)
 {
+#if 0
 	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
 
 	if (kstrtobool(buf, &tunables->pl))
 		return -EINVAL;
+#endif
 	return count;
 }
 
